@@ -1,0 +1,34 @@
+# 敏感凭据 —— 绝不提交（每台机器各自维护一份 .env）
+.env
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.pyo
+
+# 运行时数据（数据库 / Zotero 授权密钥 / 报告 / 导出 / 每日状态）
+data/
+
+# 日志
+logs/
+
+# 编辑器 / 系统文件
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# WorkBuddy 项目数据（记忆 / 自动化记录，含个人信息，不入库）
+.workbuddy/
+
+# 工作台快照（由 _build_workbench.py 自动重建，体积大且随数据变化）
+paperpilot_workbench.html
+
+# 个人研究原始资料（不随程序发布，本地保留）
+专家意见.txt
+论文分析.txt

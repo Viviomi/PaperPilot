@@ -1,0 +1,380 @@
+# =====================================================================
+# PaperPilot 配置文件
+# 顶会顶刊论文智能追踪系统 —— 采集 / 筛选 / 深度分析 / 报告
+# 修改本文件后下次运行 main.py 即生效，无需重启
+# =====================================================================
+
+app:
+  name: PaperPilot
+  timezone: Asia/Shanghai
+  lookback_days: 7              # 向前追溯多少天内的论文
+  daily_analysis_limit: 10      # 每天最多做多少篇完整 LLM 深度分析
+  daily_ingest_limit: 20        # 每天最多新增入库多少篇论文（0=不限制；已入库论文更新不受限）
+  ingest_min_relevance: 25      # 入库相关度阈值（0-100）：低于此值的新论文直接丢弃不入库
+  ingest_per_topic_limit: 4     # 每个研究领域每天最多入库几篇（0=不限；多主题论文归入最高分主题）
+  ingest_wildcard_limit: 2      # 机动名额：每天额外入库「顶会但零关键词命中」的新方向论文（0=关闭）
+  request_timeout: 40           # 单次请求超时（秒）
+  request_delay: 3              # 同一信源相邻请求间隔（秒），保护对方服务
+  max_topic_keywords: 40        # 每个主题关键词数量上限（LLM 提炼回写时防止膨胀）
+  max_keyword_tags: 5           # 每篇论文的关键词标签数量上限
+
+sources:
+  arxiv:
+    enabled: true
+    max_results_per_query: 20
+    # arXiv 分类：cs.AI/cs.LG/cs.CV/cs.MA/cs.CL/cs.NE/stat.ML/eess.SP
+    categories: [cs.AI, cs.LG, cs.CV, cs.MA, cs.CL, cs.NE, stat.ML, eess.SP]
+  openalex:
+    enabled: true
+    max_results_per_venue: 40
+    conference_lookback_days: 730   # 会议按"最近一届"拉取（约2年）
+    arxiv_lookback_days: 7          # arXiv 预印本兜底窗口
+    mailto: ""                  # ★强烈建议填你的邮箱：进入 polite pool，显著减少 429
+  crossref:
+    enabled: true
+    max_results_per_journal: 30
+    lookback_days: 90           # 期刊滚动窗口（天）
+    mailto: ""                  # 同上，建议填写
+  github:
+    enabled: true
+    max_repos_per_query: 5
+    max_repos_total: 40
+  openreview:
+    enabled: true
+    max_results_per_venue: 100   # 每个会议最多拉多少篇（主题匹配后）
+    # OpenReview 原生承办的会议（NeurIPS/ICML/ICLR 等）；程序自动探测最近一届年份。
+    # CVPR/ICCV/AAAI/KDD/ECCV 不在 OpenReview 上，由 arXiv/OpenAlex 覆盖。
+    venues:
+      NeurIPS: "NeurIPS.cc"
+      ICML: "ICML.cc"
+      ICLR: "ICLR.cc"
+
+# ---------------------------------------------------------------------
+# 顶会顶刊注册表：openalex_source 为 OpenAlex 的 source id（用于按会议/期刊拉取）
+# issn 为 Crossref 期刊 ISSN（用于期刊最新论文）
+# 注：OpenAlex 对 ICML/ECCV 收录不全，这两类由 arXiv 分类 + 主题词兜底
+# ---------------------------------------------------------------------
+venues:
+  conferences:
+    AAAI: {openalex_source: S4210191458}
+    NeurIPS: {openalex_source: S4363606243}
+    ICML: {openalex_source: ""}        # OpenAlex 收录不全，靠 arXiv 预印本兜底
+    CVPR: {openalex_source: S4210176548}
+    ICCV: {openalex_source: S4363607764}
+    ECCV: {openalex_source: ""}        # 同上
+    KDD: {openalex_source: S4363608767}
+  journals:
+    TPAMI: {openalex_source: S199944782, issn: "0162-8828"}
+    TIP: {openalex_source: S4210173141, issn: "1057-7149"}
+    TNNLS: {openalex_source: S4210175523, issn: "2162-237X"}
+# ---------------------------------------------------------------------
+# 关注的研究方向（主题体系）
+# weight 用于加权；keywords 用于召回与相关度打分
+# ---------------------------------------------------------------------
+topics:
+  generative_model:
+    label: 生成式模型
+    weight: 1.0
+    keywords:
+    - generative
+    - synthetic model
+    - GAN
+    - diffusion model
+    - rectified-flow transformer
+    - adaptive scenario generation
+    - compact decoder
+    - foundation models
+    - small language models (slms)
+    - autoregressive language models
+    - voice cloning
+    - text-to-speech
+    - autoregressive models
+    - lineage inpainting
+    - stochastic interpolants
+    - latent variables
+    - generalized feynman-kac correctors
+    - reward-based steering
+    - speculative decoding
+    - large language model serving
+    - latent reasoning
+    - vision-language model
+    - model collapse
+    - concept localization
+    - concept erasure
+    - activation steering
+    - cbct-to-ct image synthesis
+    - multilingual safety alignment
+  multi_agent:
+    label: 多智能体协同
+    weight: 1.0
+    keywords:
+    - multi-agent
+    - MARL
+    - multi-agent collaboration
+    - cooperative multi-agent
+    - decentralized planning
+    - multi-agent communication
+    - credit assignment
+    - task allocation
+    - centralized training decentralized execution
+  bci:
+    label: 脑机接口
+    weight: 1.0
+    keywords:
+    - brain-computer interface
+    - BCI
+    - EEG decoding
+    - neural decoding
+    - cross-subject
+    - motor imagery
+    - electroencephalography
+    - ECoG
+    - brain signal
+    - SSVEP
+    - EEG emotion recognition
+    - spatiotemporal modeling
+    - probabilistic eeg forecasting
+  few_shot:
+    label: 小样本学习
+    weight: 1.0
+    keywords:
+    - few-shot
+    - meta-learning
+    - low-resource
+    - sample efficiency
+    - fast adaptation
+    - parameter-efficient
+    - few-shot adaptation
+    - in-context learning
+    - zero-shot generalization
+  transfer:
+    label: 迁移学习
+    weight: 1.0
+    keywords:
+    - transfer learning
+    - domain adaptation
+    - domain generalization
+    - test-time adaptation
+    - negative transfer
+    - distribution shift
+    - cross-domain
+    - source-free
+    - cross-embodiment
+    - self-training
+  agents:
+    label: 智能体设计
+    weight: 1.0
+    keywords:
+    - LLM agent
+    - large language model agent
+    - tool use
+    - agent memory
+    - agent planning
+    - multi-agent system
+    - retrieval-augmented
+    - autonomous agent
+    - agentic verification
+    - game agents
+    - hierarchical planner-controller
+    - auditable belief updates
+    - agentic active-space selection
+    - pacing algorithms
+    - conversational assistants
+    - medical diagnostic agents
+  machine_learning:
+    label: 机器学习
+    weight: 1.0
+    keywords:
+    - LLM
+    - knowledge graph
+    - knowledge distillation
+    - quantization
+    - pruning
+    - neural architecture search
+    - self-supervised learning
+    - contrastive learning
+    - meta-learning
+    - transfer learning
+    - data preprocessing
+    - data augmentation
+    - data synthesis
+    - multi-modal learning
+    - multi-modal data augmentation
+    - surrogate model
+    - reduced dimensionality
+    - feature extraction
+    - feature selection
+    - feature engineering
+    - theory of machine learning
+    - feedback control
+    - reward shaping
+    - exploration-exploitation
+    - differential privacy
+    - propose-filter-release
+    - private filtering
+    - friendly-dp
+    - typical sensitivity
+    - neural thickets
+    - weight perturbations
+    - perturb-select-vote
+    - output diversity
+    - logit perturbations
+    - distributionally robust optimization
+    - membership inference attacks
+    - linear probing
+    - activation monitoring
+    - unified training
+    - consumer gpu training
+    - vision-language-action models
+    - benchmark
+    - neural operator
+    - sparse autoencoders
+    - tree-structured transformers
+    - bayesian filtering
+    - pretrained model
+    - graph attention network
+    - probabilistic forecasting
+    - conformal calibration
+    - multi-task learning
+    - looped transformers
+    - loop scaling
+    - parallel inference
+    - pseudo-labeling
+    - uncertainty quantification
+    - causal transformer
+    - verified self-training
+    - linear regression
+    - conformal prediction
+    - general-purpose models
+    - fair ranking
+    - recommender systems
+    - distributional stability
+    - category-aware fairness
+    - accelerated mri reconstruction
+    - posterior mode estimation
+    - minorize-maximize algorithm
+    - mixture-of-experts
+    - differentiable safeguard
+    - optimal transport
+    - differentiable experimental design
+    - optimal experimental design
+    - mechanism learning
+    - hyperparameter optimization
+    - xgboost
+    - class imbalance
+    - federated learning
+    - governance-aware federated learning
+    - no-regret learning
+    - jax
+    - real-time inference
+    - adversarial robustness
+    - model compression
+    - mobile money scam detection
+    - sms classification
+    - naive bayes
+    - support vector machine
+    - activation probes
+    - adaptive inference
+    - bayes consistency
+    - cost-sensitive hinge loss
+    - cascade routing
+    - prediction-powered inference
+  reinforcement_learning:
+    label: 强化学习
+    weight: 1.0
+    keywords:
+    - reinforcement learning
+    - rl
+    - deep reinforcement learning
+    - drl
+    - policy gradient
+    - q-learning
+    - markov decision process
+    - mdp
+    - actor-critic
+    - model-based reinforcement learning
+    - model-free reinforcement learning
+    - multi-agent reinforcement learning
+    - offline reinforcement learning
+    - inverse reinforcement learning
+    - proximal policy optimization
+    - subtrajectory balance
+    - grpo
+    - rubric-based reward
+    - policy-rubric co-evolution
+    - reward-adaptive training
+    - strategy learning
+    - epistemic self-play
+    - orchestration policy learning
+    - zero constraint violation
+
+# ---------------------------------------------------------------------
+# 排序权重：先做关键词相关度评分，再结合 LLM 分析得分做综合排序
+# ---------------------------------------------------------------------
+ranking:
+  title_match_weight: 3.0
+  abstract_match_weight: 1.0
+  venue_bonus: 3.0            # 命中顶会顶刊时的加分
+  min_relevance_score: 15     # 相关度阈值（0-100），低于此值不进入深度分析
+  weights:
+    relevance: 0.30
+    novelty_potential: 0.25
+    evidence_quality: 0.20
+    transfer_value: 0.15
+    reproducibility: 0.10
+
+# ---------------------------------------------------------------------
+# 每日三段式定时任务（由 scheduler.py 读取）
+#   - 午夜 00:00 采集新论文并入库 Zotero（Action1）
+#   - 早上 07:00 每 topic 选一篇未精读论文精读写 Obsidian（Action2）
+#   - 晚上 23:00 点评当天笔记 + 生成日报 + 发邮件（Action3+4）
+# ---------------------------------------------------------------------
+schedule:
+  collect_hour: 0
+  collect_minute: 0
+  read_hour: 7
+  read_minute: 0
+  review_hour: 23
+  review_minute: 0
+
+# ---------------------------------------------------------------------
+# 通知（邮件 + 飞书，均需在 .env 填写凭据）
+#   邮件需要 SMTP 凭据：SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASSWORD / SMTP_TO
+#   示例（QQ 邮箱）：SMTP_HOST=smtp.qq.com  SMTP_PORT=465  SMTP_PASSWORD=你的授权码
+#   端口 465 走 SSL，587 走 STARTTLS；SMTP_PASSWORD 是「授权码」而非登录密码
+# ---------------------------------------------------------------------
+notifications:
+  email_enabled: true
+  feishu_enabled: false
+
+# ---------------------------------------------------------------------
+# Zotero 文献管理同步
+# 优先尝试本地 API 自动入库；失败/未开启时生成 BibTeX 导入文件
+# ---------------------------------------------------------------------
+zotero:
+  enabled: true
+  export_bibtex: true
+  bibtex_path: "data/exports/paperpilot_import.bib"
+  local_api_url: "http://localhost:23119"   # Zotero 7+ 本地 API
+  collection: "PaperPilot/ToRead"            # 建议在 Zotero 里手动建好的集合
+  # 说明：Zotero 10 的写权限无需手动配 token —— 程序运行时会调
+  # POST /api/local/authorize，Zotero 弹出授权框，你点 Always Allow 即可。
+
+# ---------------------------------------------------------------------
+# Obsidian 知识库导出
+# vault_path 填你的 Vault 绝对路径；留空则用项目内 obsidian_vault/ 示例
+# ---------------------------------------------------------------------
+obsidian:
+  enabled: true
+  vault_path: "C:/Users/pl/ResearchVault"   # 你的 Obsidian Vault（将自动创建目录结构）
+  daily_folder: "00-Inbox/PaperPilot-Daily"
+  export_top_notes: 10          # 已弃用：已分析/待精读论文现全部写文献卡（幂等），无需限制数量
+
+# ---------------------------------------------------------------------
+# IMA 交互导出（人工导入模式）
+# ---------------------------------------------------------------------
+ima:
+  enabled: true
+  export_dir: "data/ima_exports"
+  export_limit: 20              # 精选论文导出数量上限
+
