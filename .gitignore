@@ -25,6 +25,7 @@ Thumbs.db
 
 # WorkBuddy 项目数据（记忆 / 自动化记录，含个人信息，不入库）
 .workbuddy/
+.workbuddy-ai/
 
 # 工作台快照（由 _build_workbench.py 自动重建，体积大且随数据变化）
 paperpilot_workbench.html

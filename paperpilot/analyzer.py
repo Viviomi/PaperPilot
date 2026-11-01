@@ -379,17 +379,27 @@ def analyze_paper(paper, config, related=None, requested_depth="auto",
         ]
 
         # 优先 JSON 模式；若不支持则回退普通模式（明确区分两类失败）
+        # 显式给足输出上限：深度分析的 JSON 常达 8-10KB，用服务商默认上限会被截断，
+        # 截断后的 JSON 无法修复，表现为「模型输出无法解析为 JSON」。
+        max_out = int(env("LLM_MAX_TOKENS", "16384") or 16384)
         resp = None
         try:
             resp = client.chat.completions.create(
                 model=model, messages=messages, temperature=0.2,
+                max_tokens=max_out,
                 response_format={"type": "json_object"})
         except Exception as exc:
             try:
                 resp = client.chat.completions.create(
-                    model=model, messages=messages, temperature=0.2)
+                    model=model, messages=messages, temperature=0.2,
+                    max_tokens=max_out)
             except Exception:
                 return _fallback(paper, f"分析请求失败: {exc}", status="failed")
+
+        finish = getattr(resp.choices[0], "finish_reason", None)
+        if finish == "length":
+            print(f"  ! 输出被截断（finish_reason=length），"
+                  f"可调大 .env 的 LLM_MAX_TOKENS")
 
         data = _parse_json(resp.choices[0].message.content)
         if data is None:

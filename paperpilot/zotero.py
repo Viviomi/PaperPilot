@@ -390,11 +390,16 @@ def fetch_all_items(url, key, server_id):
     return items
 
 
-def _patch_item_sync(url, headers, item_key, new_colls, citekey=""):
+def _patch_item_sync(url, headers, item_key, new_colls, citekey="",
+                     status_keys=None):
     """对已有 item 做合并式回填：collections（归集）+ citekey 标签（Obsidian 桥接）。
 
     一次 GET 同时读 collections 与 tags，一次 PATCH 合并写回，不覆盖人工标签/集合。
     幂等：citekey 标签已存在则不再写入。
+
+    status_keys 为状态分区（00_Inbox / 10_ToRead / 20_Analyzed）的集合 key 集合。
+    状态分区互斥：论文状态变化时（如 to-read → analyzed），旧分区会被移除，
+    否则一篇论文会同时挂在多个状态集合下。主题集合与人工集合不受影响。
     """
     if not item_key or (not new_colls and not citekey):
         return
@@ -414,7 +419,10 @@ def _patch_item_sync(url, headers, item_key, new_colls, citekey=""):
         pass
 
     payload = {}
-    merged = list(dict.fromkeys(list(cur_colls) + list(new_colls)))
+    kept = list(cur_colls)
+    if status_keys:
+        kept = [c for c in kept if c not in status_keys or c in new_colls]
+    merged = list(dict.fromkeys(kept + list(new_colls)))
     if merged:
         payload["collections"] = merged
     if citekey:
@@ -527,10 +535,12 @@ def add_via_local_api(papers, config):
         print(f"  [Zotero] 进度：已入库 {added} / {len(to_add)}", flush=True)
 
     # ---- 已有 item 补 collections + 回填 citekey 标签（PATCH，合并不覆盖）----
+    status_keys = set((collections.get("status") or {}).values())
     for p in existing:
         _patch_item_sync(url, headers, p["zotero_item_key"],
                          _collections_for(p, collections),
-                         p.get("citation_key") or "")
+                         p.get("citation_key") or "",
+                         status_keys=status_keys)
 
     # ---- 把新分配的 zotero_item_key 写回 DB（自包含，不依赖调用方）----
     if new_keys:
